@@ -11,3 +11,4 @@ keywords = ["hash-table", "associative-array", "hash-map", "multi-key"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+multimap = "0.10.0"

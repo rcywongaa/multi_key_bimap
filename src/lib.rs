@@ -21,9 +21,10 @@
 use core::hash::Hash;
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 pub use iter::Iter;
+use multimap::MultiMap;
 use std::borrow::Borrow;
-use std::fmt::Debug;
 use std::collections::HashMap;
+use std::fmt::Debug;
 /// Provides types and methods for the Entry API. for more information, see [`entry`] for more info.
 ///
 /// [`entry`]: MultiKeyMap::entry
@@ -55,6 +56,7 @@ where
     keys: HashMap<K, Index>,
     data: HashMap<Index, (usize, V)>,
     max_index: Index,
+    reverse_keys: MultiMap<Index, K>,
 }
 
 impl<K, V> Default for MultiKeyMap<K, V>
@@ -66,13 +68,14 @@ where
             keys: HashMap::new(),
             data: HashMap::new(),
             max_index: Index(0),
+            reverse_keys: MultiMap::new(),
         }
     }
 }
 #[allow(dead_code)]
 impl<K, V> MultiKeyMap<K, V>
 where
-    K: Hash + Eq,
+    K: Hash + Eq + Copy,
 {
     ///Creates an empty [MultiKeyMap].
     pub fn new() -> Self {
@@ -100,6 +103,7 @@ where
             let idx = self.keys.get(&k).unwrap();
             let (count, _) = self.data.get_mut(idx).unwrap();
             if *count <= 1 {
+                self.reverse_keys.insert(*idx, k.clone());
                 self.data.insert(*idx, (1, v)).map(|(_, v)| v)
             } else {
                 *count -= 1;
@@ -107,6 +111,7 @@ where
                 self.max_index = Index(self.max_index.0 + 1);
                 self.keys.insert(k, new_idx);
                 self.data.insert(new_idx, (1, v));
+                self.reverse_keys.insert(new_idx, k);
                 None
             }
         } else {
@@ -114,6 +119,7 @@ where
             self.max_index = Index(self.max_index.0 + 1);
             self.keys.insert(k, new_idx);
             self.data.insert(new_idx, (1, v));
+            self.reverse_keys.insert(new_idx, k);
             None
         }
     }
@@ -140,6 +146,7 @@ where
             let (count, v) = self.data.get_mut(&idx).unwrap();
             *count += 1;
             self.keys.insert(alias, idx);
+            self.reverse_keys.insert(idx, alias);
             Ok(v)
         } else {
             Err(alias)
@@ -168,6 +175,7 @@ where
             for alias in aliases {
                 *count += 1;
                 self.keys.insert(alias, idx);
+                self.reverse_keys.insert(idx, alias);
             }
             Ok(v)
         } else {
@@ -269,10 +277,12 @@ where
                     *count -= 1;
                     new_count += 1;
                     self.keys.insert(k, new_idx);
+                    self.reverse_keys.insert(new_idx, k);
                 }
             } else {
                 new_count += 1;
                 self.keys.insert(k, new_idx);
+                self.reverse_keys.insert(new_idx, k);
             }
         }
         self.data.insert(new_idx, (new_count, v));
@@ -285,6 +295,7 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
+        todo!();
         if self.contains_key(k) {
             let idx = self.keys.get(k).unwrap();
             let (count, _) = self.data.get_mut(idx).unwrap();
@@ -308,6 +319,7 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
+        todo!();
         let mut bumped = vec![];
         for k in ks {
             if let Some(v) = self.remove(k) {
@@ -330,11 +342,19 @@ where
             Entry::Vacant(VacantEntry { key: k, map: self })
         }
     }
+
+    pub fn get_matching_keys<Q: ?Sized>(&self, k: &Q) -> Option<&Vec<K>>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        self.reverse_keys.get_vec(self.keys.get(k)?)
+    }
 }
 
 impl<K, V, const N: usize> From<[(Vec<K>, V); N]> for MultiKeyMap<K, V>
 where
-    K: Hash + Eq,
+    K: Hash + Eq + Copy,
 {
     fn from(arr: [(Vec<K>, V); N]) -> Self {
         Self::from_iter(arr)
@@ -343,7 +363,7 @@ where
 
 impl<K, V> FromIterator<(Vec<K>, V)> for MultiKeyMap<K, V>
 where
-    K: Hash + Eq,
+    K: Hash + Eq + Copy,
 {
     fn from_iter<T: IntoIterator<Item = (Vec<K>, V)>>(iter: T) -> Self {
         let mut map = Self::new();
@@ -356,7 +376,7 @@ where
 
 impl<K, V> PartialEq for MultiKeyMap<K, V>
 where
-    K: Hash + Eq,
+    K: Hash + Eq + Copy,
     V: PartialEq,
 {
     fn eq(&self, rhs: &Self) -> bool {
@@ -370,15 +390,15 @@ where
 
 impl<K, V> Eq for MultiKeyMap<K, V>
 where
-    K: Hash + Eq,
+    K: Hash + Eq + Copy,
     V: Eq,
 {
 }
 
-impl<K, V> Debug for MultiKeyMap<K, V> 
-where 
-    K: Hash + Eq + Debug, 
-    V: Debug 
+impl<K, V> Debug for MultiKeyMap<K, V>
+where
+    K: Hash + Eq + Debug + Copy,
+    V: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_map().entries(self.iter()).finish()
@@ -399,7 +419,7 @@ where
 
 impl<K, V> Extend<(Vec<K>, V)> for MultiKeyMap<K, V>
 where
-    K: Hash + Eq,
+    K: Hash + Eq + Copy,
 {
     fn extend<T: IntoIterator<Item = (Vec<K>, V)>>(&mut self, iter: T) {
         for (ks, v) in iter {

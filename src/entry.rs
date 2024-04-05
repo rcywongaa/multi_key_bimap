@@ -16,7 +16,7 @@ where
 #[allow(dead_code)]
 impl<'a, K, V> Entry<'a, K, V>
 where
-    K: Hash + Eq,
+    K: Hash + Eq + Copy,
 {
     ///Applies the provided function to the entry, if it is occupied.
     pub fn and_modify<F>(self, f: F) -> Self
@@ -73,7 +73,7 @@ where
 #[allow(dead_code)]
 impl<'a, K, V> Entry<'a, K, V>
 where
-    K: Hash + Eq,
+    K: Hash + Eq + Copy,
     V: Default,
 {
     /// Inserts a [Default] value if the entry is vacant.
@@ -97,7 +97,7 @@ where
 #[allow(dead_code)]
 impl<'a, K, V> OccupiedEntry<'a, K, V>
 where
-    K: Hash + Eq,
+    K: Hash + Eq + Copy,
 {
     /// Returns a reference to the entry's key.
     pub fn key(&self) -> &K {
@@ -144,7 +144,7 @@ where
 #[allow(dead_code)]
 impl<'a, K, V> VacantEntry<'a, K, V>
 where
-    K: Hash + Eq,
+    K: Hash + Eq + Copy,
 {
     /// Returns a reference to the vacant entry's key.
     pub fn key(&self) -> &K {
